@@ -290,6 +290,10 @@
             cursor: default; /* Change cursor for hidden cells */
         }
 
+        .matrix-cell:not(.hidden-number) {
+            color: inherit;
+        }
+    
         /* Add this block for the 'hidden-number' class */
         .matrix-cell.hidden-number {
             color: transparent; /* Hides the text content of the number */
