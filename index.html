@@ -1,0 +1,951 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Number Click Game</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+<style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #e0f2f7; /* Light blue pastel */
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            padding: 1rem;
+            overflow: hidden; /* Prevent body scroll */
+            color: #334155; /* Slate 700 */
+            -webkit-user-select: none; /* Safari */
+            -moz-user-select: none; /* Firefox */
+            -ms-user-select: none; /* IE10+ */
+            user-select: none; /* Standard syntax */
+        }
+
+        #game-container {
+            background-color: #ffffff; /* White background */
+            padding: 1.5rem;
+            border-radius: 1rem;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            width: 100%;
+            max-width: 900px; /* Max width for desktop */
+            min-height: 500px;
+            box-sizing: border-box;
+            position: relative; /* For message box */
+        }
+
+        #matrix {
+            display: grid;
+            width: 100%;
+            height: auto;
+            gap: 0.5rem;
+            /* Using flex basis and grow for responsive square cells */
+            /* The grid will be populated by JS, setting grid-template-columns */
+            aspect-ratio: 1/1; /* Maintain square aspect ratio for the matrix */
+            max-width: 100%; /* Ensure it doesn't overflow */
+            margin-top: 1rem;
+            margin-bottom: 1rem;
+            box-sizing: border-box;
+        }
+
+        .matrix-cell {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background-color: #b2ebf2; /* Light cyan pastel */
+            color: #00796b; /* Teal 800 */
+            font-size: clamp(1rem, 4vw, 2.5rem); /* Responsive font size */
+            font-weight: 600;
+            border-radius: 0.5rem;
+            cursor: pointer;
+            transition: background-color 0.2s ease-out, color 0.2s ease-out, transform 0.1s ease-out;
+            border: 2px solid #80deea; /* Slightly darker cyan */
+            box-sizing: border-box;
+            touch-action: manipulation; /* Prevent 300ms delay on mobile */
+        }
+
+        .matrix-cell:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        .matrix-cell.clicked {
+            background-color: #eceff1; /* Light gray pastel */
+            color: #78909c; /* Blue Gray 500 */
+            cursor: default;
+            pointer-events: none; /* Disable clicks after being grayed out */
+            border-color: #cfd8dc;
+        }
+
+        .matrix-cell.incorrect {
+            background-color: #ffcdd2; /* Light red pastel */
+            color: #d32f2f; /* Red 700 */
+        }
+
+        #timer {
+            font-size: clamp(1.5rem, 6vw, 3rem);
+            font-weight: 700;
+            color: #455a64; /* Blue Gray 700 */
+            margin-bottom: 1rem;
+            font-family: 'Space Mono', monospace; /* Added monospace font */
+            font-variant-numeric: tabular-nums; /* Ensures numbers align even with different widths */
+        }
+
+        .button {
+            background-color: #00acc1; /* Cyan 600 */
+            color: white;
+            padding: 0.75rem 1.5rem;
+            border-radius: 0.5rem;
+            border: none;
+            cursor: pointer;
+            font-size: 1rem;
+            font-weight: 600;
+            transition: background-color 0.2s ease-out, transform 0.1s ease-out;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            margin: 0.5rem;
+        }
+
+        .button:hover {
+            background-color: #0097a7; /* Cyan 700 */
+            transform: translateY(-1px);
+        }
+
+        .button:active {
+            transform: translateY(0);
+            box-shadow: none;
+        }
+
+        /* Fullscreen Button Specific */
+        .fullscreen-button {
+            position: absolute;
+            top: 1rem;
+            right: 1rem;
+            background-color: #607d8b; /* Blue Gray 500 */
+            color: white;
+            padding: 0.5rem 1rem;
+            border-radius: 0.5rem;
+            font-size: 0.875rem;
+            z-index: 10;
+        }
+        .fullscreen-button:hover {
+            background-color: #455a64; /* Blue Gray 700 */
+        }
+
+
+        /* Settings Modal */
+        #settings-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            max-height: 100vh;
+            background-color: rgba(0, 0, 0, 0.7);
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.2s ease-in-out, visibility 0.3s ease-in-out;
+            padding: 1rem;
+            box-sizing: border-box;
+            overflow-y: auto; /* Allow scrolling for modal content */
+        }
+
+        #settings-modal.show {
+            opacity: 1;
+            visibility: visible;
+        }
+
+        .settings-content {
+            background-color: #ffffff;
+            padding: 2rem;
+            border-radius: 1rem;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+            width: 100%;
+            max-width: 600px;
+            box-sizing: border-box;
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+        }
+
+        .settings-content h2 {
+            font-size: 1.8rem;
+            font-weight: 700;
+            color: #334155;
+            margin-bottom: 1rem;
+            text-align: center;
+        }
+
+        .settings-group {
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+        }
+
+        .settings-group label {
+            font-weight: 600;
+            color: #475569; /* Slate 600 */
+        }
+
+        .settings-group input[type="number"],
+        .settings-group input[type="text"],
+        .settings-group select {
+            padding: 0.75rem;
+            border: 2px solid #cbd5e1; /* Slate 300 */
+            border-radius: 0.5rem;
+            font-size: 1rem;
+            color: #475569;
+            background-color: #f8fafc; /* Slate 50 */
+            transition: border-color 0.2s ease-out;
+        }
+
+        .settings-group input[type="number"]:focus,
+        .settings-group input[type="text"]:focus,
+        .settings-group select:focus {
+            outline: none;
+            border-color: #00acc1; /* Cyan 600 */
+        }
+
+        .settings-group input[type="checkbox"] {
+            margin-right: 0.5rem;
+        }
+
+        #history-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 1rem;
+        }
+
+        #history-table th, #history-table td {
+            border: 1px solid #e2e8f0; /* Slate 200 */
+            padding: 0.75rem;
+            text-align: left;
+            color: #475569;
+        }
+
+        #history-table th {
+            background-color: #f1f5f9; /* Slate 100 */
+            font-weight: 700;
+        }
+
+        /* Message Box */
+        #message-box {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background-color: #00acc1; /* Cyan 600 */
+            color: white;
+            padding: 1.5rem 2rem;
+            border-radius: 0.75rem;
+            box-shadow: 0 8px 16px rgba(0, 0, 0, 0.2);
+            text-align: center;
+            font-size: 1.25rem;
+            font-weight: 600;
+            z-index: 1100;
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.3s ease-in-out, visibility 0.3s ease-in-out;
+            max-width: 90%;
+            box-sizing: border-box;
+        }
+
+        #message-box.show {
+            opacity: 1;
+            visibility: visible;
+        }
+
+        .color-theme-option {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            margin-bottom: 0.5rem;
+        }
+        .color-theme-option input[type="radio"] {
+            margin: 0;
+        }
+        .color-preview-box {
+            width: 20px;
+            height: 20px;
+            border-radius: 4px;
+            border: 1px solid #ccc;
+        }
+
+        /* Specific Color Themes */
+        .theme-pastel .matrix-cell {
+            background-color: #b2ebf2; /* Light cyan pastel */
+            color: #00796b; /* Teal 800 */
+            border-color: #80deea; /* Slightly darker cyan */
+        }
+        .matrix-cell:not(.visible) {
+            color: transparent; /* Hide the number */
+            background-color: #e0e0e0; /* A different background for hidden cells */
+            border-color: #bdbdbd;
+            cursor: default; /* Change cursor for hidden cells */
+        }
+
+        /* Add this block for the 'hidden-number' class */
+        .matrix-cell.hidden-number {
+            color: transparent; /* Hides the text content of the number */
+            background-color: #e0e0e0; /* Light gray to indicate it's not active */
+            border-color: #cfd8dc; /* Border color for hidden cells */
+            cursor: default; /* No pointer cursor when hidden */
+            pointer-events: none; /* Prevents clicks on hidden numbers */
+            visibility: hidden; /* <--- ADD THIS LINE */
+        }
+
+        /* Optional: Highlight for the number 1 */
+        .matrix-cell.highlight-one {
+            background-color: #ffeb3b; /* A yellow background to make it stand out */
+            color: #f57f17; /* Darker yellow/orange text */
+            border-color: #fbc02d;
+            transform: scale(1.05); /* Slightly enlarge */
+            box-shadow: 0 0 15px rgba(255, 235, 59, 0.5); /* Glowing effect */
+        }
+
+        /* Ensure the 'clicked' style still applies correctly when revealed */
+        .matrix-cell.clicked {
+            background-color: #eceff1; /* Light gray pastel */
+            color: #78909c; /* Blue Gray 500 */
+            cursor: default;
+            pointer-events: none; /* Disable clicks after being grayed out */
+            border-color: #cfd8dc;
+        }
+        .theme-pastel body {
+            background-color: #e0f2f7; /* Light blue pastel */
+        }
+        .theme-pastel .button {
+             background-color: #00acc1; /* Cyan 600 */
+        }
+        .theme-pastel .button:hover {
+             background-color: #0097a7; /* Cyan 700 */
+        }
+        .theme-pastel .fullscreen-button {
+            background-color: #607d8b; /* Blue Gray 500 */
+        }
+        .theme-pastel #message-box {
+            background-color: #00acc1; /* Cyan 600 */
+        }
+
+        .theme-forest .matrix-cell {
+            background-color: #c8e6c9; /* Light green pastel */
+            color: #388e3c; /* Green 700 */
+            border-color: #a5d6a7;
+        }
+        .theme-forest .matrix-cell.clicked {
+            background-color: #e8f5e9; /* Even lighter green */
+            color: #66bb6a; /* Green 400 */
+            border-color: #c5e1a5;
+        }
+        .theme-forest body {
+            background-color: #aed581; /* Light green */
+        }
+        .theme-forest .button {
+            background-color: #4caf50; /* Green 500 */
+        }
+        .theme-forest .button:hover {
+            background-color: #43a047; /* Green 600 */
+        }
+        .theme-forest .fullscreen-button {
+            background-color: #7cb342; /* Light Green 600 */
+        }
+        .theme-forest #message-box {
+            background-color: #4caf50; /* Green 500 */
+        }
+
+        .theme-sunset .matrix-cell {
+            background-color: #ffecb3; /* Light orange pastel */
+            color: #fb8c00; /* Orange 600 */
+            border-color: #ffd54f;
+        }
+        .theme-sunset .matrix-cell.clicked {
+            background-color: #fff8e1; /* Even lighter orange */
+            color: #ffb74d; /* Orange 300 */
+            border-color: #ffe082;
+        }
+        .theme-sunset body {
+            background-color: #ffab91; /* Light red-orange */
+        }
+        .theme-sunset .button {
+            background-color: #ff9800; /* Orange 500 */
+        }
+        .theme-sunset .button:hover {
+            background-color: #fb8c00; /* Orange 600 */
+        }
+        .theme-sunset .fullscreen-button {
+            background-color: #ff7043; /* Deep Orange 400 */
+        }
+        .theme-sunset #message-box {
+            background-color: #ff9800; /* Orange 500 */
+        }
+    </style>
+</head>
+<body>
+    <div id="game-container" class="theme-pastel">
+        <button id="fullscreen-btn" class="button fullscreen-button">Toggle Fullscreen</button>
+        <div id="timer">00:00.000</div>
+        <div id="matrix">
+            <!-- Cells will be injected here by JavaScript -->
+        </div>
+        <div class="flex flex-wrap justify-center mt-4">
+            <button id="start-game-btn" class="button">Start New Game</button>
+            <button id="settings-btn" class="button">Settings (Spacebar)</button>
+        </div>
+    </div>
+
+    <!-- Settings/Info Modal -->
+    <div id="settings-modal">
+        <div class="settings-content">
+            <h2>Settings & Info</h2>
+
+            <div class="settings-group">
+                <label for="matrix-rows">Matrix Size (Rows M):</label>
+                <input type="number" id="matrix-rows" value="8" min="2" max="15">
+            </div>
+            <div class="settings-group">
+                <label for="matrix-cols">Matrix Size (Cols N):</label>
+                <input type="number" id="matrix-cols" value="8" min="2" max="15">
+            </div>
+
+            <div class="settings-group">
+                <label>
+                    <input type="checkbox" id="random-seed-toggle" checked>
+                    Use Random Seed
+                </label>
+                <label for="fixed-seed">Fixed Seed (leave blank for random):</label>
+                <input type="text" id="fixed-seed" placeholder="Enter seed string">
+            </div>
+
+            <div class="settings-group">
+                <label for="color-scheme">Color Scheme:</label>
+                <div>
+                    <div class="color-theme-option">
+                        <input type="radio" name="color-scheme" value="pastel" id="theme-pastel" checked>
+                        <label for="theme-pastel">Pastel</label>
+                        <div class="color-preview-box" style="background-color: #b2ebf2; border-color: #80deea;"></div>
+                        <div class="color-preview-box" style="background-color: #eceff1; border-color: #cfd8dc;"></div>
+                    </div>
+                    <div class="color-theme-option">
+                        <input type="radio" name="color-scheme" value="forest" id="theme-forest">
+                        <label for="theme-forest">Forest</label>
+                        <div class="color-preview-box" style="background-color: #c8e6c9; border-color: #a5d6a7;"></div>
+                        <div class="color-preview-box" style="background-color: #e8f5e9; border-color: #c5e1a5;"></div>
+                    </div>
+                    <div class="color-theme-option">
+                        <input type="radio" name="color-scheme" value="sunset" id="theme-sunset">
+                        <label for="theme-sunset">Sunset</label>
+                        <div class="color-preview-box" style="background-color: #ffecb3; border-color: #ffd54f;"></div>
+                        <div class="color-preview-box" style="background-color: #fff8e1; border-color: #ffe082;"></div>
+                    </div>
+                </div>
+            </div>
+
+            <h3 class="text-xl font-semibold text-center mt-4 mb-2">Previous Games</h3>
+            <div class="overflow-x-auto">
+                <table id="history-table">
+                    <thead>
+                        <tr>
+                            <th>Date</th>
+                            <th>Time</th>
+                            <th>Size</th>
+                            <th>Seed</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <!-- History will be loaded here -->
+                    </tbody>
+                </table>
+            </div>
+
+            <button id="close-settings-btn" class="button">Close</button>
+        </div>
+    </div>
+
+    <!-- Message Box for game completion/instructions -->
+    <div id="message-box">
+        Game Over! Time: 00:00.000
+    </div>
+
+    <script>
+        // Use a IIFE to keep variables private and avoid polluting global scope
+        (function() {
+            // --- DOM Elements ---
+            const gameContainer = document.getElementById('game-container');
+            const matrixElement = document.getElementById('matrix');
+            const timerElement = document.getElementById('timer');
+            const startGameBtn = document.getElementById('start-game-btn');
+            const settingsBtn = document.getElementById('settings-btn');
+            const fullscreenBtn = document.getElementById('fullscreen-btn');
+            const settingsModal = document.getElementById('settings-modal');
+            const closeSettingsBtn = document.getElementById('close-settings-btn');
+            const matrixRowsInput = document.getElementById('matrix-rows');
+            const matrixColsInput = document.getElementById('matrix-cols');
+            const randomSeedToggle = document.getElementById('random-seed-toggle');
+            const fixedSeedInput = document.getElementById('fixed-seed');
+            const historyTableBody = document.querySelector('#history-table tbody');
+            const messageBox = document.getElementById('message-box');
+            const colorSchemeRadios = document.querySelectorAll('input[name="color-scheme"]');
+
+            // --- Game State Variables ---
+            let matrixSizeM = 8;
+            let matrixSizeN = 8;
+            let numbers = [];
+            let nextExpectedNumber = 1;
+            let timerInterval = null;
+            let startTime = 0;
+            let gameActive = false;
+            let currentSeed = '';
+            let useRandomSeed = true;
+
+            // --- Constants and Local Storage Keys ---
+            const LS_SETTINGS_KEY = 'numberClickGameSettings';
+            const LS_HISTORY_KEY = 'numberClickGameHistory';
+            const MAX_HISTORY_ENTRIES = 10; // Keep only the last 10 game records
+
+            // --- Utility: Simple Pseudo-Random Number Generator (PRNG) ---
+            // A basic Linear Congruential Generator (LCG)
+            // See: https://en.wikipedia.org/wiki/Linear_congruential_generator
+            let prngSeed = 1;
+            function mulberry32(a) {
+                return function() {
+                    let t = a += 0x6D2B79F5;
+                    t = Math.imul(t ^ t >>> 15, t | 1);
+                    t ^= t + Math.imul(t ^ t >>> 7, t | 61);
+                    return ((t ^ t >>> 14) >>> 0) / 4294967296;
+                };
+            }
+
+            // Function to seed the PRNG
+            function seedPRNG(seedString) {
+                let hash = 0;
+                for (let i = 0; i < seedString.length; i++) {
+                    hash = ((hash << 5) - hash) + seedString.charCodeAt(i);
+                    hash |= 0; // Convert to 32bit integer
+                }
+                prngSeed = hash || Math.floor(Math.random() * 1e9); // Fallback to random if hash is 0
+            }
+
+            // --- Game Logic Functions ---
+
+            /**
+             * Shuffles an array using the Fisher-Yates (Knuth) algorithm.
+             * Uses the custom PRNG if a fixed seed is active.
+             * @param {Array} array The array to shuffle.
+             * @returns {Array} The shuffled array.
+             */
+            function shuffleArray(array) {
+                const random = useRandomSeed ? Math.random : mulberry32(prngSeed);
+                let currentIndex = array.length, randomIndex;
+
+                // While there remain elements to shuffle.
+                while (currentIndex !== 0) {
+                    // Pick a remaining element.
+                    randomIndex = Math.floor(random() * currentIndex);
+                    currentIndex--;
+
+                    // And swap it with the current element.
+                    [array[currentIndex], array[randomIndex]] = [
+                        array[randomIndex], array[currentIndex]
+                    ];
+                }
+                return array;
+            }
+
+            /**
+             * Initializes the game state: generates numbers, shuffles them, and renders the matrix.
+             */
+            function initGame() {
+                // Read settings
+                matrixSizeM = parseInt(matrixRowsInput.value) || 8;
+                matrixSizeN = parseInt(matrixColsInput.value) || 8;
+                useRandomSeed = randomSeedToggle.checked;
+                currentSeed = useRandomSeed ? generateRandomSeed() : fixedSeedInput.value || generateRandomSeed();
+                fixedSeedInput.value = currentSeed; // Update fixed seed input with the current seed
+
+                // Seed the PRNG for consistent results if not random
+                if (!useRandomSeed) {
+                    seedPRNG(currentSeed);
+                }
+
+                // Reset game state
+                gameActive = false;
+                nextExpectedNumber = 1;
+                clearInterval(timerInterval);
+                timerElement.textContent = '00:00.000';
+                hideMessageBox();
+
+                // Generate numbers 1 to M*N
+                numbers = Array.from({ length: matrixSizeM * matrixSizeN }, (_, i) => i + 1);
+                shuffleArray(numbers);
+
+                renderMatrix();
+            }
+
+            /**
+             * Renders the matrix cells into the DOM.
+             */
+            function renderMatrix() {
+                matrixElement.innerHTML = ''; // Clear previous cells
+                matrixElement.style.gridTemplateColumns = `repeat(${matrixSizeN}, 1fr)`;
+                matrixElement.style.gridTemplateRows = `repeat(${matrixSizeM}, 1fr)`;
+
+                numbers.forEach(num => {
+                    const cell = document.createElement('div');
+                    cell.classList.add('matrix-cell');
+                    cell.textContent = num;
+                    cell.dataset.number = num; // Store number in data attribute
+
+                    // Initially hide all numbers except 1
+                    if (num !== 1) {
+                        cell.classList.add('hidden-number'); // Add a class to hide the number
+                    } else {
+                        // For number 1, ensure it's visible and clickable
+                        cell.classList.add('highlight-one'); // Optional: Add a highlight for '1'
+                    }
+
+                    cell.addEventListener('click', handleCellClick);
+                    matrixElement.appendChild(cell);
+                });
+
+                // Adjust matrix size to fit, prioritizing squareness of cells
+                // This ensures that the matrix fills the available space without overflowing
+                // and keeps cells square, adapting to portrait/landscape.
+                const gameContainerRect = gameContainer.getBoundingClientRect();
+                const availableWidth = gameContainerRect.width - (matrixSizeN - 1) * 0.5 * 16; // Account for gap
+                const availableHeight = gameContainerRect.height - timerElement.offsetHeight - 100; // Approx space for buttons/padding
+
+                const cellWidthByHeight = availableHeight / matrixSizeM;
+                const cellWidthByWidth = availableWidth / matrixSizeN;
+
+                const cellSize = Math.min(cellWidthByHeight, cellWidthByWidth);
+
+                // Set a max width/height on the matrix to ensure cells don't get too big
+                // and the matrix itself fits within the game container.
+                matrixElement.style.width = `${cellSize * matrixSizeN + (matrixSizeN - 1) * 0.5 * 16}px`;
+                matrixElement.style.height = `${cellSize * matrixSizeM + (matrixSizeM - 1) * 0.5 * 16}px`;
+
+                // If the calculated matrix size is too large for the available container,
+                // we'll revert to full width and let flexbox handle remaining
+                // or just set max-width/height on the game container and let the matrix be relative to that.
+                // For simplicity and robust fitting, `width: 100%; aspect-ratio: 1/1;` on the matrix
+                // combined with `grid-template-columns: repeat(N, 1fr);` on the cells is generally best.
+                // The key is ensuring game-container itself is responsive.
+            }
+
+
+            /**
+             * Handles the click event on a matrix cell.
+             * @param {Event} event The click event.
+             */
+            function handleCellClick(event) {
+                const clickedCell = event.target;
+                const clickedNumber = parseInt(clickedCell.dataset.number);
+
+                // If game is not active and the clicked number is 1, start the game and reveal all
+                if (!gameActive && clickedNumber === 1) {
+                    // Reveal all numbers
+                    document.querySelectorAll('.matrix-cell').forEach(cell => {
+                        cell.classList.remove('hidden-number');
+                        cell.classList.remove('highlight-one'); // Remove highlight if added
+                    });
+                    startGame(); // Start the timer
+                    clickedCell.classList.add('clicked'); // Mark 1 as clicked
+                    nextExpectedNumber++;
+                    return; // Exit after handling the first click
+                }
+
+                // Normal game logic for subsequent clicks (if game is active)
+                if (gameActive) {
+                    if (clickedNumber === nextExpectedNumber) {
+                        clickedCell.classList.add('clicked');
+                        nextExpectedNumber++;
+
+                        if (nextExpectedNumber > matrixSizeM * matrixSizeN) {
+                            stopGame();
+                        }
+                    } else {
+                        // Visual feedback for incorrect click
+                        clickedCell.classList.add('incorrect');
+                        setTimeout(() => {
+                            clickedCell.classList.remove('incorrect');
+                        }, 300); // Remove "incorrect" class after 300ms
+                    }
+                }
+            }
+
+            /**
+             * Starts the game timer.
+             */
+            function startGame() {
+                gameActive = true;
+                startTime = Date.now();
+                timerInterval = setInterval(updateTimer, 10); // Update every 10ms for milliseconds display
+            }
+
+            /**
+             * Stops the game timer and records the score.
+             */
+            function stopGame() {
+                gameActive = false;
+                clearInterval(timerInterval);
+                const finalTime = Date.now() - startTime;
+                timerElement.textContent = formatTime(finalTime);
+                showMessageBox(`Game Over! Your Time: ${formatTime(finalTime)}`);
+                saveGameResult(finalTime, currentSeed, matrixSizeM, matrixSizeN);
+                loadGameHistory(); // Reload history to show the new entry
+            }
+
+            /**
+             * Updates the timer display.
+             */
+            function updateTimer() {
+                const elapsedTime = Date.now() - startTime;
+                timerElement.textContent = formatTime(elapsedTime);
+            }
+
+            /**
+             * Formats milliseconds into MM:SS.mmm format.
+             * @param {number} ms Milliseconds.
+             * @returns {string} Formatted time string.
+             */
+            function formatTime(ms) {
+                const minutes = Math.floor(ms / 60000);
+                const seconds = Math.floor((ms % 60000) / 1000);
+                const milliseconds = Math.floor((ms % 1000));
+
+                return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}.${String(milliseconds).padStart(3, '0')}`;
+            }
+
+            /**
+             * Generates a simple random string for a seed.
+             * @returns {string} A random seed string.
+             */
+            function generateRandomSeed() {
+                return Math.random().toString(36).substring(2, 8); // e.g., "kf82d1"
+            }
+
+            // --- Settings & Local Storage Functions ---
+
+            /**
+             * Loads settings from local storage and applies them to the UI.
+             */
+            function loadSettings() {
+                try {
+                    const settings = JSON.parse(localStorage.getItem(LS_SETTINGS_KEY));
+                    if (settings) {
+                        matrixRowsInput.value = settings.M || 8;
+                        matrixColsInput.value = settings.N || 8;
+                        randomSeedToggle.checked = settings.useRandomSeed !== false; // Default to true
+                        fixedSeedInput.value = settings.fixedSeed || '';
+                        fixedSeedInput.disabled = randomSeedToggle.checked;
+
+                        // Set color scheme radio
+                        const savedColorScheme = settings.colorScheme || 'pastel';
+                        document.getElementById(`theme-${savedColorScheme}`).checked = true;
+                        applyColorScheme(savedColorScheme);
+                    } else {
+                        // Apply defaults if no settings found
+                        applyColorScheme('pastel');
+                    }
+                } catch (e) {
+                    console.error('Failed to load settings from local storage:', e);
+                }
+            }
+
+            /**
+             * Saves current settings from the UI to local storage.
+             */
+            function saveSettings() {
+                try {
+                    const settings = {
+                        M: parseInt(matrixRowsInput.value) || 8,
+                        N: parseInt(matrixColsInput.value) || 8,
+                        useRandomSeed: randomSeedToggle.checked,
+                        fixedSeed: fixedSeedInput.value,
+                        colorScheme: document.querySelector('input[name="color-scheme"]:checked').value
+                    };
+                    localStorage.setItem(LS_SETTINGS_KEY, JSON.stringify(settings));
+                } catch (e) {
+                    console.error('Failed to save settings to local storage:', e);
+                }
+            }
+
+            /**
+             * Saves a game result to local storage history.
+             * @param {number} time The time taken in milliseconds.
+             * @param {string} seed The seed used for the game.
+             * @param {number} M Matrix rows.
+             * @param {number} N Matrix columns.
+             */
+            function saveGameResult(time, seed, M, N) {
+                try {
+                    const history = JSON.parse(localStorage.getItem(LS_HISTORY_KEY)) || [];
+                    const now = new Date();
+                    history.unshift({ // Add to the beginning
+                        date: now.toLocaleDateString(),
+                        time: formatTime(time),
+                        size: `${M}x${N}`,
+                        seed: seed
+                    });
+
+                    // Keep only the latest MAX_HISTORY_ENTRIES
+                    while (history.length > MAX_HISTORY_ENTRIES) {
+                        history.pop();
+                    }
+
+                    localStorage.setItem(LS_HISTORY_KEY, JSON.stringify(history));
+                } catch (e) {
+                    console.error('Failed to save game result to local storage:', e);
+                }
+            }
+
+            /**
+             * Loads game history from local storage and displays it in the table.
+             */
+            function loadGameHistory() {
+                historyTableBody.innerHTML = ''; // Clear existing history
+                try {
+                    const history = JSON.parse(localStorage.getItem(LS_HISTORY_KEY)) || [];
+                    if (history.length === 0) {
+                        const row = historyTableBody.insertRow();
+                        const cell = row.insertCell();
+                        cell.colSpan = 4;
+                        cell.textContent = 'No previous games.';
+                        cell.style.textAlign = 'center';
+                        return;
+                    }
+
+                    history.forEach(record => {
+                        const row = historyTableBody.insertRow();
+                        row.insertCell().textContent = record.date;
+                        row.insertCell().textContent = record.time;
+                        row.insertCell().textContent = record.size;
+                        const seedCell = row.insertCell();
+                        seedCell.innerHTML = `<span style="user-select: all; cursor: copy;">${record.seed}</span>`;
+                    });
+                } catch (e) {
+                    console.error('Failed to load game history from local storage:', e);
+                }
+            }
+
+            /**
+             * Applies the selected color scheme to the game container.
+             * @param {string} scheme The name of the color scheme (e.g., 'pastel', 'forest').
+             */
+            function applyColorScheme(scheme) {
+                gameContainer.classList.remove('theme-pastel', 'theme-forest', 'theme-sunset');
+                gameContainer.classList.add(`theme-${scheme}`);
+            }
+
+            // --- UI Management Functions ---
+
+            /**
+             * Shows the settings modal.
+             */
+            function showSettingsModal() {
+                settingsModal.classList.add('show');
+                loadGameHistory(); // Always refresh history when opening
+            }
+
+            /**
+             * Hides the settings modal.
+             */
+            function hideSettingsModal() {
+                settingsModal.classList.remove('show');
+                saveSettings(); // Save settings when closing
+                initGame(); // Re-initialize game with new settings
+            }
+
+            /**
+             * Displays a message box with given text for a short duration.
+             * @param {string} message The message to display.
+             * @param {number} duration Duration in milliseconds (default 3000).
+             */
+            function showMessageBox(message, duration = 3000) {
+                messageBox.textContent = message;
+                messageBox.classList.add('show');
+                setTimeout(() => {
+                    hideMessageBox();
+                }, duration);
+            }
+
+            /**
+             * Hides the message box.
+             */
+            function hideMessageBox() {
+                messageBox.classList.remove('show');
+            }
+
+            /**
+             * Toggles full screen mode for the entire document.
+             */
+            function toggleFullscreen() {
+                if (!document.fullscreenElement) {
+                    document.documentElement.requestFullscreen().catch(err => {
+                        console.error(`Error attempting to enable full-screen mode: ${err.message} (${err.name})`);
+                        showMessageBox("Fullscreen mode could not be activated.", 2000);
+                    });
+                } else {
+                    document.exitFullscreen();
+                }
+            }
+
+            // --- Event Listeners ---
+            document.addEventListener('DOMContentLoaded', () => {
+                loadSettings(); // Load settings on page load
+                initGame(); // Initialize the game with loaded settings
+            });
+
+            startGameBtn.addEventListener('click', initGame);
+            settingsBtn.addEventListener('click', showSettingsModal);
+            closeSettingsBtn.addEventListener('click', hideSettingsModal);
+            fullscreenBtn.addEventListener('click', toggleFullscreen);
+
+            randomSeedToggle.addEventListener('change', () => {
+                fixedSeedInput.disabled = randomSeedToggle.checked;
+                if (randomSeedToggle.checked) {
+                    fixedSeedInput.value = ''; // Clear fixed seed when random is selected
+                } else {
+                    // If switching to fixed and field is empty, generate a temporary seed for display
+                    if (!fixedSeedInput.value) {
+                         fixedSeedInput.value = generateRandomSeed();
+                    }
+                }
+            });
+
+            colorSchemeRadios.forEach(radio => {
+                radio.addEventListener('change', (event) => {
+                    applyColorScheme(event.target.value);
+                });
+            });
+
+            // Spacebar to toggle settings modal
+            document.addEventListener('keydown', (event) => {
+                if (event.code === 'Space') {
+                    event.preventDefault(); // Prevent scrolling
+                    if (settingsModal.classList.contains('show')) {
+                        hideSettingsModal();
+                    } else {
+                        showSettingsModal();
+                    }
+                }
+            });
+
+            // Prevent scroll for arrow keys if they affect page scroll
+            window.addEventListener("keydown", function(e) {
+                // spacebar already handled above
+                if(["ArrowUp","ArrowDown","ArrowLeft","ArrowRight"].indexOf(e.code) > -1) {
+                    e.preventDefault();
+                }
+            }, false);
+
+        })(); // End of IIFE
+    </script>
+</body>
+</html>
